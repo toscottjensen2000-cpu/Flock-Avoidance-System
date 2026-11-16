@@ -38,8 +38,14 @@ Send `app-debug.apk` to the phone (USB, Google Drive, email), open it, and allow
 
 ## Updating the app
 
-The page lives at `app/src/main/assets/www/index.html`. Replace that file with a new version,
-then build again. Raise `versionCode` in `app/build.gradle` so the phone installs it over the old one.
+The page lives in the repo's `web/` folder. Each build copies `web/index.html`, `web/config.js` and
+`web/icons/` into the app (the `syncWebAssets` task), so edit `web/` and build again.
+Raise `versionCode` in `app/build.gradle` so the phone installs it over the old one.
+
+## Map key
+
+Put your CARTO key in `web/config.js` (copy `web/config.example.js`) before building, or the map shows an
+"API KEY REQUIRED" watermark.
 
 ## Notes
 

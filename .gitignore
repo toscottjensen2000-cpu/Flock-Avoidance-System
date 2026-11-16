@@ -15,3 +15,9 @@ captures/
 # OS
 .DS_Store
 Thumbs.db
+
+# Your own keys (copy web/config.example.js to web/config.js)
+web/config.js
+
+# Generated at build time from web/ by the syncWebAssets Gradle task
+android/app/src/main/assets/www/

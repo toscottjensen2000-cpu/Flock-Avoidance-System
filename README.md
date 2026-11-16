@@ -27,8 +27,20 @@ such as Flock Safety cameras, then hands the route to Google Maps or OsmAnd for 
 | [`web/`](web/) | The app as a single web page, installable to a phone's home screen. Host the folder on any static host (Netlify, GitHub Pages). |
 | [`android/`](android/) | An Android Studio project that bundles the same page into an Android app, with one-tap OsmAnd hand-off. See [`android/README.md`](android/README.md) for build steps. |
 
-The Android app contains a copy of the page at `android/app/src/main/assets/www/index.html`.
-When you change `web/index.html`, copy it there too before building the app.
+The Android build copies `web/` into the app automatically, so `web/` is the only copy of the page to edit.
+
+## Map key (CARTO)
+
+The map tiles come from CARTO, which requires a free API key ([carto.com/basemaps/apikey](https://carto.com/basemaps/apikey/));
+without one the map shows an "API KEY REQUIRED" watermark.
+
+1. Copy `web/config.example.js` to `web/config.js`.
+2. Replace `PASTE_YOUR_CARTO_KEY_HERE` with your key.
+
+`config.js` is in `.gitignore`, so the key stays on your computer. Include it when you upload `web/` to a host,
+and build the Android app after adding it. Anyone using the app can still see the key in their browser, so
+in your CARTO key settings, limit it to the sites that use it (your host's domain, plus
+`appassets.androidplatform.net` for the Android app).
 
 ## Run the web version
 

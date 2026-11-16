@@ -29,6 +29,17 @@ android {
     }
 }
 
+// Copy the web app (repo's web/ folder) into the APK's assets before every build, so the page and
+// config.js (your CARTO key) only need to live in web/.
+def webSource = file("$projectDir/../../web")
+tasks.register('syncWebAssets', Sync) {
+    from(webSource) {
+        include 'index.html', 'config.js', 'icons/**'
+    }
+    into file("$projectDir/src/main/assets/www")
+}
+preBuild.dependsOn 'syncWebAssets'
+
 dependencies {
     implementation 'androidx.webkit:webkit:1.12.1'
     implementation 'androidx.core:core:1.13.1'
