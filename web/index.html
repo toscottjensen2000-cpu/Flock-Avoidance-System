@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flock Route</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#11151c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flock Route">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-180.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#11151c; --panel:#171c25; --line:#2a3240; --text:#e8ecf2; --muted:#93a0b4;
+    --accent:#3ddc97; --accent-ink:#06281a; --cam:#ff5a3c; --warn:#ffb020; --base:#8b96a8;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{display:flex;background:var(--bg);color:var(--text);
+    font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  #panel{width:370px;flex:none;background:var(--panel);border-right:1px solid var(--line);
+    overflow-y:auto;padding:18px 18px 28px}
+  #map{flex:1;min-width:0;background:#dfe5ea}
+  h1{font-size:20px;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+  h1 i{width:11px;height:11px;border-radius:50%;background:var(--cam);box-shadow:0 0 0 4px rgba(255,90,60,.22)}
+  .sub{color:var(--muted);margin:4px 0 18px;font-size:13px}
+  label.f{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 0 5px}
+  .row{display:flex;gap:6px;position:relative}
+  input[type=text]{flex:1;min-width:0;background:#0e1218;border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:10px 11px;font:inherit;outline:none}
+  input[type=text]:focus{border-color:var(--accent)}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#0e1218;color:var(--text);padding:0 10px}
+  button:hover{border-color:#44506a}
+  button.icon{width:40px;flex:none;font-size:15px}
+  button.on{border-color:var(--accent);color:var(--accent)}
+  #go{width:100%;margin-top:16px;padding:12px;background:var(--accent);color:var(--accent-ink);border:0;font-weight:650;font-size:15px}
+  #go:disabled{opacity:.5;cursor:default}
+  .sug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:#0e1218;border:1px solid var(--line);
+    border-radius:8px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .sug div{padding:8px 11px;cursor:pointer;border-bottom:1px solid #1d2430}
+  .sug div:last-child{border:0}
+  .sug div:hover{background:#1a2130}
+  .sug small{display:block;color:var(--muted)}
+  .opt{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .opt .line{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .chk{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13px;margin-top:10px;cursor:pointer}
+  .chk input{margin-top:3px;accent-color:var(--accent)}
+  #status{margin-top:14px;font-size:13px;color:var(--muted);min-height:20px}
+  #status.err{color:#ff8a75}
+  #status.busy::before{content:"";display:inline-block;width:10px;height:10px;margin-right:8px;border-radius:50%;
+    border:2px solid var(--accent);border-top-color:transparent;animation:sp .8s linear infinite;vertical-align:-1px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #result{margin-top:14px;display:none}
+  .card{border:1px solid var(--line);border-radius:10px;padding:12px 13px;margin-bottom:8px;background:#121720}
+  .card.best{border-color:var(--accent)}
+  .card .t{display:flex;align-items:center;gap:8px;font-weight:600}
+  .sw{width:22px;height:4px;border-radius:2px;background:var(--accent);flex:none}
+  .sw.b{background:repeating-linear-gradient(90deg,var(--base) 0 5px,transparent 5px 9px)}
+  .nums{display:flex;gap:16px;margin-top:8px}
+  .nums b{display:block;font-size:19px;font-weight:650;letter-spacing:-.01em}
+  .nums span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .nums .bad b{color:var(--cam)} .nums .ok b{color:var(--accent)}
+  .note{font-size:13px;color:var(--muted);margin:8px 0}
+  .note.w{color:var(--warn)}
+  details{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+  summary{cursor:pointer;color:var(--muted)}
+  ol{margin:10px 0 0;padding-left:22px} ol li{margin-bottom:7px} ol small{color:var(--muted)}
+  #gpx{width:100%;padding:9px;margin-top:6px}
+  .gm{border:1px solid var(--line);border-radius:10px;padding:12px 13px;margin:12px 0 4px;background:#121720}
+  .gmh{font-weight:600;display:flex;align-items:center;gap:8px}
+  .gdot{width:10px;height:10px;border-radius:50%;background:#4285f4;box-shadow:0 0 0 3px rgba(66,133,244,.25)}
+  .caprow{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--muted)}
+  select{background:#0e1218;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 6px;font:inherit;font-size:13px}
+  .gbtn{display:block;text-align:center;margin-top:8px;padding:11px;border-radius:8px;background:#4285f4;color:#fff;
+    font-weight:650;text-decoration:none}
+  .gbtn.disabled{opacity:.45;pointer-events:none}
+  button.gbtn{width:100%;border:0;font-size:15px}
+  .gbtn.osm{background:#ff8800;color:#1b0f00}
+  .gdot.osm{background:#ff8800;box-shadow:0 0 0 3px rgba(255,136,0,.25)}
+  .tag{font-weight:500;font-size:11px;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 7px;margin-left:auto}
+  .gm .note{margin:8px 0 0}
+  .inst{margin-left:auto;font-size:12px;font-weight:600;padding:6px 11px;border-color:var(--accent);color:var(--accent)}
+  @media (display-mode: standalone){ #panel{padding-top:max(18px, env(safe-area-inset-top))} }
+  .cp{margin-top:8px} .cp input{font-size:12px;padding:8px 9px} .cp button{padding:0 12px}
+  .spin::before{content:"";display:inline-block;width:10px;height:10px;margin-right:8px;border-radius:50%;
+    border:2px solid #4285f4;border-top-color:transparent;animation:sp .8s linear infinite;vertical-align:-1px}
+  .wp{width:20px;height:20px;border-radius:50%;background:#4285f4;color:#fff;border:2px solid #fff;
+    font:700 11px/16px system-ui;text-align:center;box-shadow:0 1px 5px rgba(0,0,0,.45)}
+  .fine{margin-top:18px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px}
+  .fine a{color:var(--muted)}
+  #chip{position:absolute;z-index:500;top:12px;right:12px;background:rgba(17,21,28,.9);color:var(--text);
+    padding:6px 11px;border-radius:999px;font-size:12px;pointer-events:none}
+  #mapwrap{flex:1;min-width:0;position:relative;display:flex}
+  .pick button{display:block;width:100%;padding:7px 10px;margin:4px 0;background:#fff;color:#111;border:1px solid #ccd}
+  .pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;
+    box-shadow:0 2px 8px rgba(0,0,0,.45);display:grid;place-items:center}
+  .pin span{transform:rotate(45deg);font:700 12px system-ui;color:#fff}
+  @media (max-width:760px){
+    body{flex-direction:column}
+    #panel{width:auto;max-height:52vh;border-right:0;border-bottom:1px solid var(--line)}
+  }
+</style>
+</head>
+<body>
+<aside id="panel">
+  <h1><i></i>Flock Route<button id="install" class="inst" hidden>Install app</button></h1>
+  <p class="sub">Directions that steer around mapped license plate readers.</p>
+
+  <label class="f" for="from">From</label>
+  <div class="row">
+    <input type="text" id="from" placeholder="Address, place, or lat, lon" autocomplete="off">
+    <button class="icon" id="locate" title="Use my location">◎</button>
+  </div>
+  <label class="f" for="to">To</label>
+  <div class="row">
+    <input type="text" id="to" placeholder="Address, place, or lat, lon" autocomplete="off">
+    <button class="icon" id="swap" title="Swap">⇅</button>
+  </div>
+  <p class="note">Or click the map to set either point. Pins can be dragged.</p>
+
+  <button id="go">Find a camera-free route</button>
+
+  <div class="opt">
+    <div class="line"><span>Keep-away distance</span><b id="bufv">35 m</b></div>
+    <input type="range" id="buf" min="15" max="100" step="5" value="35">
+    <label class="chk"><input type="checkbox" id="all" checked>
+      <span>Also avoid plate readers that aren't labeled Flock (other brands, or Flock cameras nobody tagged with a maker)</span></label>
+  </div>
+
+  <div id="status"></div>
+  <div id="result"></div>
+
+  <p class="fine">Camera locations are crowdsourced from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>
+    (the data behind <a href="https://deflock.me">DeFlock</a>). Cameras nobody has mapped yet won't be avoided, so treat a
+    "0 cameras" route as "0 known cameras". Routing by Valhalla, search by Photon, on public community servers: please go easy on them.</p>
+</aside>
+<div id="mapwrap"><div id="map"></div><div id="chip">Zoom in to load cameras</div></div>
+
+<script>
+"use strict";
+const VALHALLA = "https://valhalla1.openstreetmap.de/route";
+const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+const PHOTON = "https://photon.komoot.io/api/";
+const MAX_ROUNDS = 10;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const r6 = n => Math.round(n * 1e6) / 1e6;
+
+/* ---------- map ---------- */
+const map = L.map("map", {zoomControl: true}).setView([39.5, -98.35], 4);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  maxZoom: 20, subdomains: "abcd",
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+}).addTo(map);
+const canvas = L.canvas({padding: 0.3});
+const camLayer = L.layerGroup().addTo(map);
+const routeLayer = L.layerGroup().addTo(map);
+const hitLayer = L.layerGroup().addTo(map);
+
+/* ---------- state ---------- */
+const pts = {from: null, to: null};          // {lat, lon, label}
+const pins = {from: null, to: null};
+const cams = new Map();                       // id -> {id, lat, lon, tags, flock}
+const fetched = [];                           // bboxes already loaded [s,w,n,e]
+let lastBest = null;
+
+function setStatus(msg, cls) { const s = $("status"); s.textContent = msg || ""; s.className = cls || ""; }
+
+/* ---------- geometry ---------- */
+function meters(aLat, aLon, bLat, bLon) {
+  const ky = 110540, kx = 111320 * Math.cos((aLat + bLat) / 2 * Math.PI / 180);
+  return Math.hypot((bLat - aLat) * ky, (bLon - aLon) * kx);
+}
+function distToSeg(p, a, b) { // p {lat,lon}; a,b [lat,lon]; metres
+  const kx = 111320 * Math.cos(p.lat * Math.PI / 180), ky = 110540;
+  const ax = (a[1] - p.lon) * kx, ay = (a[0] - p.lat) * ky, bx = (b[1] - p.lon) * kx, by = (b[0] - p.lat) * ky;
+  const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+  let t = len2 ? -(ax * dx + ay * dy) / len2 : 0; t = Math.max(0, Math.min(1, t));
+  return Math.hypot(ax + t * dx, ay + t * dy);
+}
+function decodePolyline(str, precision) {
+  const f = Math.pow(10, precision || 6), out = []; let i = 0, lat = 0, lon = 0;
+  while (i < str.length) {
+    for (const which of [0, 1]) {
+      let b, shift = 0, res = 0;
+      do { b = str.charCodeAt(i++) - 63; res |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+      const d = (res & 1) ? ~(res >> 1) : (res >> 1);
+      if (which === 0) lat += d; else lon += d;
+    }
+    out.push([lat / f, lon / f]);
+  }
+  return out;
+}
+function bboxOf(line) {
+  let s = 90, w = 180, n = -90, e = -180;
+  for (const [la, lo] of line) { if (la < s) s = la; if (la > n) n = la; if (lo < w) w = lo; if (lo > e) e = lo; }
+  return [s, w, n, e];
+}
+function padBox(b) {
+  const p = Math.min(0.5, Math.max(0.03, 0.2 * Math.max(b[2] - b[0], b[3] - b[1])));
+  return [b[0] - p, b[1] - p, b[2] + p, b[3] + p];
+}
+const CELL = 0.004;
+function buildIndex(line) {
+  const grid = new Map(), long = [];
+  for (let i = 0; i < line.length - 1; i++) {
+    const a = line[i], b = line[i + 1];
+    const y0 = Math.floor(Math.min(a[0], b[0]) / CELL), y1 = Math.floor(Math.max(a[0], b[0]) / CELL);
+    const x0 = Math.floor(Math.min(a[1], b[1]) / CELL), x1 = Math.floor(Math.max(a[1], b[1]) / CELL);
+    if ((y1 - y0 + 1) * (x1 - x0 + 1) > 400) { long.push(i); continue; }
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const k = y + "," + x; let arr = grid.get(k); if (!arr) grid.set(k, arr = []); arr.push(i);
+    }
+  }
+  return {grid, long};
+}
+function camerasOnRoute(line, buffer) {
+  const idx = buildIndex(line), bb = bboxOf(line), hits = [], useAll = $("all").checked;
+  for (const c of cams.values()) {
+    if (!useAll && !c.flock) continue;
+    if (c.lat < bb[0] - 0.002 || c.lat > bb[2] + 0.002 || c.lon < bb[1] - 0.002 || c.lon > bb[3] + 0.002) continue;
+    const cy = Math.floor(c.lat / CELL), cx = Math.floor(c.lon / CELL); let best = Infinity;
+    for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 1; x <= cx + 1; x++) {
+      const arr = idx.grid.get(y + "," + x); if (!arr) continue;
+      for (const i of arr) { const d = distToSeg(c, line[i], line[i + 1]); if (d < best) best = d; }
+    }
+    for (const i of idx.long) { const d = distToSeg(c, line[i], line[i + 1]); if (d < best) best = d; }
+    if (best <= buffer) hits.push(c);
+  }
+  return hits;
+}
+
+/* ---------- cameras (Overpass) ---------- */
+const isFlock = t => ["manufacturer", "brand", "operator", "model", "name", "surveillance:brand"]
+  .some(k => t[k] && /flock/i.test(t[k]));
+const covered = b => fetched.some(f => f[0] <= b[0] && f[1] <= b[1] && f[2] >= b[2] && f[3] >= b[3]);
+let camQueue = Promise.resolve();
+function ensureCameras(b) { camQueue = camQueue.catch(() => {}).then(() => loadCameras(b)); return camQueue; }
+async function loadCameras(b) {
+  if (covered(b)) return;
+  const q = `[out:json][timeout:60];nwr["surveillance:type"="ALPR"](${b.map(r6).join(",")});out center;`;
+  let lastErr;
+  for (const url of OVERPASS) {
+    try {
+      const res = await fetch(url, {method: "POST", body: new URLSearchParams({data: q})});
+      if (!res.ok) throw new Error("camera server returned " + res.status);
+      const json = await res.json();
+      for (const el of json.elements || []) {
+        const lat = el.lat ?? el.center?.lat, lon = el.lon ?? el.center?.lon;
+        if (lat == null || lon == null) continue;
+        const id = el.type + "/" + el.id, tags = el.tags || {};
+        cams.set(id, {id, lat, lon, tags, flock: isFlock(tags)});
+      }
+      fetched.push(b); drawCameras(); return;
+    } catch (e) { lastErr = e; }
+  }
+  throw new Error("Couldn't load camera locations (" + lastErr.message + "). Try again in a minute.");
+}
+function drawCameras() {
+  camLayer.clearLayers();
+  const useAll = $("all").checked; let shown = 0, flock = 0;
+  for (const c of cams.values()) {
+    if (c.flock) flock++;
+    if (!useAll && !c.flock) continue;
+    shown++;
+    L.circleMarker([c.lat, c.lon], {renderer: canvas, radius: 4, weight: 1, color: "#7a1d0c",
+      fillColor: c.flock ? "#ff5a3c" : "#ff9d2e", fillOpacity: .9, bubblingMouseEvents: false})
+      .bindPopup(() => camPopup(c)).addTo(camLayer);
+  }
+  $("chip").textContent = cams.size ? `${shown.toLocaleString()} cameras loaded · ${flock.toLocaleString()} labeled Flock` : "No mapped cameras here";
+}
+function camPopup(c) {
+  const t = c.tags, rows = [];
+  rows.push("<b>" + esc(t.manufacturer || t.brand || "Plate reader, maker not recorded") + "</b>");
+  if (t.operator) rows.push("Operator: " + esc(t.operator));
+  if (t.direction || t["camera:direction"]) rows.push("Facing: " + esc(t.direction || t["camera:direction"]) + "°");
+  rows.push(`<a href="https://www.openstreetmap.org/${esc(c.id)}" target="_blank" rel="noopener">OpenStreetMap record</a>`);
+  return rows.join("<br>");
+}
+let viewTimer;
+map.on("moveend", () => {
+  clearTimeout(viewTimer);
+  viewTimer = setTimeout(() => {
+    if (map.getZoom() < 11) { if (!cams.size) $("chip").textContent = "Zoom in to load cameras"; return; }
+    const b = map.getBounds();
+    ensureCameras([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]).catch(() => {});
+  }, 700);
+});
+
+/* ---------- places (Photon) ---------- */
+function parseLatLon(s) {
+  const m = s.trim().match(/^(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)$/);
+  if (!m) return null;
+  const lat = +m[1], lon = +m[2];
+  return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? {lat, lon, label: `${lat.toFixed(5)}, ${lon.toFixed(5)}`} : null;
+}
+async function geocode(q) {
+  const direct = parseLatLon(q); if (direct) return [direct];
+  const c = map.getCenter(), u = new URL(PHOTON);
+  u.searchParams.set("q", q); u.searchParams.set("limit", "5");
+  if (map.getZoom() > 5) { u.searchParams.set("lat", c.lat.toFixed(4)); u.searchParams.set("lon", c.lng.toFixed(4)); }
+  const res = await fetch(u); if (!res.ok) throw new Error("Address search is unavailable right now.");
+  const json = await res.json();
+  return (json.features || []).map(f => {
+    const p = f.properties || {};
+    const main = [p.housenumber, p.street].filter(Boolean).join(" ");
+    const title = p.name || main || p.city || "Unnamed place";
+    const rest = [p.name && main ? main : null, p.city, p.state, p.country].filter(x => x && x !== title).join(", ");
+    return {lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], label: rest ? `${title}, ${rest}` : title, title, rest};
+  });
+}
+function pinIcon(color, letter) {
+  return L.divIcon({className: "", iconSize: [26, 26], iconAnchor: [13, 26],
+    html: `<div class="pin" style="background:${color}"><span>${letter}</span></div>`});
+}
+function setPoint(which, p, fly) {
+  pts[which] = p; $(which).value = p.label;
+  if (pins[which]) pins[which].setLatLng([p.lat, p.lon]);
+  else {
+    pins[which] = L.marker([p.lat, p.lon], {draggable: true, icon: pinIcon(which === "from" ? "#2b6cff" : "#111", which === "from" ? "A" : "B")}).addTo(map);
+    pins[which].on("dragend", e => {
+      const ll = e.target.getLatLng();
+      setPoint(which, {lat: ll.lat, lon: ll.lng, label: `${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`});
+    });
+  }
+  if (fly) { if (pts.from && pts.to) map.fitBounds([[pts.from.lat, pts.from.lon], [pts.to.lat, pts.to.lon]], {padding: [60, 60]}); else map.setView([p.lat, p.lon], 13); }
+}
+function wireSearch(which) {
+  const input = $(which); let timer, box, seq = 0;
+  const close = () => { if (box) { box.remove(); box = null; } };
+  input.addEventListener("input", () => {
+    pts[which] = null; clearTimeout(timer); const q = input.value.trim();
+    if (q.length < 3 || parseLatLon(q)) { close(); return; }
+    timer = setTimeout(async () => {
+      const mine = ++seq; let list;
+      try { list = await geocode(q); } catch { return; }
+      if (mine !== seq) return; close(); if (!list.length) return;
+      box = document.createElement("div"); box.className = "sug";
+      list.forEach(p => {
+        const d = document.createElement("div");
+        d.innerHTML = esc(p.title) + (p.rest ? `<small>${esc(p.rest)}</small>` : "");
+        d.addEventListener("mousedown", ev => { ev.preventDefault(); setPoint(which, p, true); close(); });
+        box.appendChild(d);
+      });
+      input.parentElement.appendChild(box);
+    }, 350);
+  });
+  input.addEventListener("blur", () => setTimeout(close, 150));
+  input.addEventListener("keydown", e => { if (e.key === "Enter") { seq++; clearTimeout(timer); close(); run(); } });
+}
+wireSearch("from"); wireSearch("to");
+async function resolve(which) {
+  if (pts[which]) return pts[which];
+  const q = $(which).value.trim();
+  if (!q) throw new Error(which === "from" ? "Enter a starting point." : "Enter a destination.");
+  const list = await geocode(q);
+  if (!list.length) throw new Error(`Couldn't find "${q}".`);
+  setPoint(which, list[0]); return list[0];
+}
+map.on("click", e => {
+  const div = document.createElement("div"); div.className = "pick";
+  [["from", "Start here"], ["to", "Go here"]].forEach(([which, text]) => {
+    const b = document.createElement("button"); b.textContent = text;
+    b.onclick = () => { setPoint(which, {lat: e.latlng.lat, lon: e.latlng.lng, label: `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`}); map.closePopup(); };
+    div.appendChild(b);
+  });
+  L.popup().setLatLng(e.latlng).setContent(div).openOn(map);
+});
+$("locate").onclick = () => {
+  if (!navigator.geolocation) return setStatus("This browser can't share your location.", "err");
+  setStatus("Finding you…", "busy");
+  navigator.geolocation.getCurrentPosition(
+    pos => { setPoint("from", {lat: pos.coords.latitude, lon: pos.coords.longitude, label: "My location"}, true); setStatus(""); },
+    () => setStatus("Location wasn't shared. Type an address or click the map instead.", "err"),
+    {enableHighAccuracy: true, timeout: 10000});
+};
+$("swap").onclick = () => {
+  const a = pts.from, b = pts.to, av = $("from").value, bv = $("to").value;
+  pts.from = pts.to = null; $("from").value = bv; $("to").value = av;
+  if (b) setPoint("from", b); if (a) setPoint("to", a);
+};
+
+/* ---------- routing (Valhalla) ---------- */
+function square(c, r) {
+  const dLat = r / 110540, dLon = r / (111320 * Math.cos(c.lat * Math.PI / 180));
+  const w = r6(c.lon - dLon), e = r6(c.lon + dLon), s = r6(c.lat - dLat), n = r6(c.lat + dLat);
+  return [[w, s], [e, s], [e, n], [w, n], [w, s]];
+}
+async function valhalla(locs, excl) {
+  const body = {
+    locations: locs.map(p => ({lat: r6(p.lat), lon: r6(p.lon)})),
+    costing: "auto", units: "miles"
+  };
+  if (excl && excl.size) body.exclude_polygons = [...excl].map(([id, r]) => square(cams.get(id), r));
+  const json = JSON.stringify(body), getUrl = VALHALLA + "?json=" + encodeURIComponent(json);
+  const attempts = getUrl.length < 7000
+    ? [() => fetch(getUrl), () => fetch(VALHALLA, {method: "POST", body: json})]
+    : [() => fetch(VALHALLA, {method: "POST", body: json}), () => fetch(VALHALLA, {method: "POST", headers: {"Content-Type": "application/json"}, body: json})];
+  let res, netErr;
+  for (const attempt of attempts) { try { res = await attempt(); break; } catch (e) { netErr = e; } }
+  if (!res) throw new Error("Couldn't reach the routing server. " + (netErr ? netErr.message : ""));
+  let data; try { data = await res.json(); } catch { data = null; }
+  if (!res.ok || !data || !data.trip) {
+    const err = new Error((data && data.error) || ("Routing server returned " + res.status));
+    err.code = data && data.error_code; throw err;
+  }
+  const line = [], steps = [];
+  for (const leg of data.trip.legs) {
+    line.push(...decodePolyline(leg.shape, 6));
+    for (const m of leg.maneuvers) steps.push({text: m.instruction, miles: m.length});
+  }
+  return {line, steps, miles: data.trip.summary.length, secs: data.trip.summary.time};
+}
+
+const fmtTime = s => { const m = Math.round(s / 60); return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + (m % 60) + " min"; };
+const fmtMi = mi => (mi < 10 ? mi.toFixed(1) : Math.round(mi)) + " mi";
+
+let running = false;
+async function run() {
+  if (running) return; running = true; $("go").disabled = true;
+  $("result").style.display = "none"; routeLayer.clearLayers(); hitLayer.clearLayers(); gmLayer.clearLayers();
+  lastBest = null; lastTrip = null; gmSeq++;
+  try {
+    setStatus("Looking up addresses…", "busy");
+    const a = await resolve("from"), b = await resolve("to");
+    const buffer = +$("buf").value;
+
+    setStatus("Finding the fastest route…", "busy");
+    const base = await valhalla([a, b], null);
+    setStatus("Loading camera locations along the way…", "busy");
+    await ensureCameras(padBox(bboxOf(base.line)));
+    base.hits = camerasOnRoute(base.line, buffer);
+
+    // Cameras sitting right at either end can't be routed around.
+    const endDist = c => Math.min(meters(c.lat, c.lon, a.lat, a.lon), meters(c.lat, c.lon, b.lat, b.lon));
+    const avoidable = hits => hits.filter(c => endDist(c) > buffer + 20);
+    let best = base, cur = base, note = "";
+    const excl = new Map();
+
+    for (let round = 1; round <= MAX_ROUNDS && avoidable(cur.hits).length; round++) {
+      let changed = false;
+      for (const c of avoidable(cur.hits)) {
+        const prev = excl.get(c.id);
+        let r = prev == null ? 25 : prev < buffer + 5 ? buffer + 5 : prev * 1.6;
+        r = Math.min(r, 200, endDist(c) - 15);
+        if (prev == null || r > prev + 1) { excl.set(c.id, r); changed = true; }
+      }
+      if (!changed) break;
+      setStatus(`Rerouting around ${excl.size} camera${excl.size > 1 ? "s" : ""} (pass ${round})…`, "busy");
+      await sleep(1100);
+      let next;
+      try { next = await valhalla([a, b], excl); }
+      catch (e) {
+        note = /path|route/i.test(e.message) && e.code !== 167
+          ? "No drivable route avoids every camera here; this is the one that passes the fewest."
+          : "The public routing server wouldn't take any more cameras to avoid (" + e.message + "). This is the best route found before that.";
+        break;
+      }
+      await ensureCameras(padBox(bboxOf(next.line)));
+      next.hits = camerasOnRoute(next.line, buffer);
+      const nb = avoidable(next.hits).length, bb = avoidable(best.hits).length;
+      if (nb < bb || (nb === bb && next.secs < best.secs)) best = next;
+      cur = next;
+    }
+    if (!note && avoidable(best.hits).length) note = "Stopped after several passes; this route passes the fewest cameras found so far. Running it again or shrinking the keep-away distance may help.";
+    lastTrip = {a, b, base, best};
+    show(base, best, note, avoidable);
+    setStatus("");
+    buildGoogle();
+  } catch (e) { setStatus(e.message || String(e), "err"); }
+  finally { running = false; $("go").disabled = false; }
+}
+
+function show(base, best, note, avoidable) {
+  const same = best === base;
+  if (!same) L.polyline(base.line, {color: "#8b96a8", weight: 5, opacity: .9, dashArray: "8 9"}).addTo(routeLayer);
+  L.polyline(best.line, {color: "#0b3d2a", weight: 9, opacity: .9}).addTo(routeLayer);
+  const main = L.polyline(best.line, {color: "#3ddc97", weight: 5}).addTo(routeLayer);
+  const ring = (c, color) => L.circleMarker([c.lat, c.lon], {radius: 9, color, weight: 3, fill: false, interactive: false}).addTo(hitLayer);
+  const bestIds = new Set(best.hits.map(c => c.id));
+  base.hits.forEach(c => { if (!bestIds.has(c.id)) ring(c, "#8b96a8"); });
+  best.hits.forEach(c => ring(c, "#d4001a"));
+  map.fitBounds(main.getBounds(), {padding: [50, 50]});
+
+  const card = (cls, sw, title, r) => `<div class="card ${cls}"><div class="t"><span class="sw ${sw}"></span>${title}</div>
+    <div class="nums"><div><b>${fmtTime(r.secs)}</b><span>drive</span></div><div><b>${fmtMi(r.miles)}</b><span>distance</span></div>
+    <div class="${r.hits.length ? "bad" : "ok"}"><b>${r.hits.length}</b><span>cameras passed</span></div></div></div>`;
+  let h = "";
+  if (same && !base.hits.length) h += card("best", "", "Fastest route", base) + `<p class="note">The fastest route already passes no mapped cameras.</p>`;
+  else if (same) h += card("best", "", "Fastest route", base);
+  else {
+    h += card("best", "", "Camera-avoiding route", best) + card("", "b", "Fastest route", base);
+    const extra = best.secs - base.secs;
+    h += `<p class="note">Avoids ${base.hits.length - best.hits.length} of ${base.hits.length} cameras for ${extra > 30 ? fmtTime(extra) + " more driving" : "about the same drive time"}.</p>`;
+  }
+  const stuck = best.hits.length - avoidable(best.hits).length;
+  if (stuck) h += `<p class="note w">${stuck} camera${stuck > 1 ? "s sit" : " sits"} right next to your start or destination and can't be routed around.</p>`;
+  if (note) h += `<p class="note w">${esc(note)}</p>`;
+  h += `<div class="gm"><div class="gmh"><span class="gdot"></span>Drive it in Google Maps</div>
+    <label class="caprow">Stops Google can take
+      <select id="cap"><option value="3">3 (opening on a phone)</option><option value="9">9 (opening on a computer)</option></select></label>
+    <div id="gmstat" class="note"></div>
+    <a id="gmopen" class="gbtn disabled" target="_blank" rel="noopener">Open in Google Maps</a>
+    <div class="row cp"><input type="text" id="gmurl" readonly placeholder="Link appears here"><button id="gmcopy">Copy</button></div>
+  </div>`;
+  h += `<details><summary>Turn-by-turn directions (${best.steps.length} steps)</summary><ol>` +
+    best.steps.map(s => `<li>${esc(s.text)}${s.miles ? ` <small>${fmtMi(s.miles)}</small>` : ""}</li>`).join("") + `</ol></details>
+    <div class="gm"><div class="gmh"><span class="gdot osm"></span>Drive it in OsmAnd <small class="tag">exact route</small></div>
+      <p class="note">OsmAnd follows this exact line with no stop limit, so it's the better choice when Google can't match the route.</p>
+      <button id="osmopen" class="gbtn osm">Open in OsmAnd</button>
+      <div id="osmhint" class="note"></div>
+      <button id="gpx">Just download the GPX file</button>
+    </div>`;
+  $("result").innerHTML = h; $("result").style.display = "block";
+  lastBest = best; $("gpx").onclick = downloadGpx; $("osmopen").onclick = openInOsmAnd;
+  if (typeof window.Android !== "undefined") $("gpx").textContent = "Share GPX file";
+  $("cap").value = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ? "3" : "9";
+  $("cap").onchange = buildGoogle;
+  $("gmcopy").onclick = copyGoogle;
+}
+
+/* ---------- Google Maps hand-off ----------
+   Google picks its own roads between the stops in a link, so we choose stops that pin it to our route.
+   To predict what Google will do between stops we ask Valhalla for its plain fastest route through them
+   (no cameras avoided) and check which cameras that passes. Where it strays from our camera-free route,
+   we drop a stop at the point of the detour that's farthest from where it strayed, and check again. */
+let lastTrip = null, gmSeq = 0;
+const gmLayer = L.layerGroup().addTo(map);
+const ll6 = p => p.lat.toFixed(6) + "," + p.lon.toFixed(6);
+
+function distToLine(p, idx, line) {
+  const cy = Math.floor(p.lat / CELL), cx = Math.floor(p.lon / CELL); let best = Infinity;
+  for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 1; x <= cx + 1; x++) {
+    const arr = idx.grid.get(y + "," + x); if (!arr) continue;
+    for (const i of arr) { const d = distToSeg(p, line[i], line[i + 1]); if (d < best) best = d; }
+  }
+  for (const i of idx.long) { const d = distToSeg(p, line[i], line[i + 1]); if (d < best) best = d; }
+  return best;
+}
+// Stretches of our route that the predicted Google route doesn't follow.
+function detours(samples, simLine) {
+  const idx = buildIndex(simLine), runs = []; let run = null;
+  for (const s of samples) {
+    const d = distToLine({lat: s.p[0], lon: s.p[1]}, idx, simLine);
+    if (d > 50) {
+      if (!run) runs.push(run = {pts: [], far: null, farD: 0});
+      run.pts.push({...s, d}); if (d > run.farD) { run.farD = d; run.far = s; }
+    } else run = null;
+  }
+  runs.forEach(r => {
+    // Points too far off for the lookup grid all read Infinity; take the middle one, not the first.
+    if (r.farD === Infinity) { const far = r.pts.filter(s => s.d === Infinity); r.far = far[far.length >> 1]; } r.len = r.pts.length * 25; const b = bboxOf(r.pts.map(s => s.p)); r.box = padBox(b); });
+  return runs;
+}
+function googleUrl(a, b, wps) {
+  const u = new URL("https://www.google.com/maps/dir/");
+  u.searchParams.set("api", "1");
+  u.searchParams.set("origin", ll6(a));
+  u.searchParams.set("destination", ll6(b));
+  u.searchParams.set("travelmode", "driving");
+  if (wps.length) u.searchParams.set("waypoints", wps.map(w => ll6({lat: w.p[0], lon: w.p[1]})).join("|"));
+  return u.toString();
+}
+async function buildGoogle() {
+  const t = lastTrip; if (!t || !$("cap")) return;
+  const mine = ++gmSeq, cap = +$("cap").value, buffer = +$("buf").value;
+  const stat = $("gmstat"), open = $("gmopen");
+  open.classList.add("disabled"); open.removeAttribute("href"); $("gmurl").value = ""; gmLayer.clearLayers();
+  stat.className = "note spin"; stat.textContent = "Working out stops that keep Google on this route…";
+
+  const allowed = new Set(t.best.hits.map(c => c.id));
+  const extraOf = r => camerasOnRoute(r.line, buffer).filter(c => !allowed.has(c.id));
+  const samples = []; let prev = null;
+  for (let i = 0; i < t.best.line.length; i++) {
+    const p = t.best.line[i];
+    if (!prev || meters(prev[0], prev[1], p[0], p[1]) >= 25) { samples.push({p, i}); prev = p; }
+  }
+  const nearEnd = s => meters(s.p[0], s.p[1], t.a.lat, t.a.lon) < 120 || meters(s.p[0], s.p[1], t.b.lat, t.b.lon) < 120;
+
+  let wps = [], sim = t.base, extra = extraOf(sim), trouble = "";
+  let best = {wps: [], extra, sim};
+  for (let round = 0; round < 6 && extra.length && wps.length < cap; round++) {
+    let runs = detours(samples, sim.line).filter(r => r.far && !nearEnd(r.far));
+    const camRuns = runs.filter(r => extra.some(c => c.lat >= r.box[0] && c.lat <= r.box[2] && c.lon >= r.box[1] && c.lon <= r.box[3]));
+    runs = (camRuns.length ? camRuns : runs).sort((x, y) => y.len - x.len);
+    let added = 0;
+    for (const r of runs) {
+      if (wps.length >= cap) break;
+      if (wps.some(w => meters(w.p[0], w.p[1], r.far.p[0], r.far.p[1]) < 150)) continue;
+      wps.push(r.far); added++;
+    }
+    if (!added) break;
+    wps.sort((x, y) => x.i - y.i);
+    await sleep(1100); if (mine !== gmSeq) return;
+    try {
+      sim = await valhalla([t.a, ...wps.map(w => ({lat: w.p[0], lon: w.p[1]})), t.b], null);
+      await ensureCameras(padBox(bboxOf(sim.line)));
+    } catch (e) { trouble = e.message; break; }
+    if (mine !== gmSeq) return;
+    extra = extraOf(sim);
+    if (extra.length < best.extra.length || (extra.length === best.extra.length && wps.length < best.wps.length))
+      best = {wps: wps.slice(), extra, sim};
+  }
+
+  const url = googleUrl(t.a, t.b, best.wps);
+  open.href = url; open.classList.remove("disabled"); $("gmurl").value = url;
+  best.wps.forEach((w, n) => L.marker(w.p, {icon: L.divIcon({className: "", iconSize: [20, 20], iconAnchor: [10, 10],
+    html: `<div class="wp">${n + 1}</div>`})}).bindTooltip(`Google Maps stop ${n + 1}`).addTo(gmLayer));
+
+  const k = best.wps.length, stops = k ? `${k} stop${k > 1 ? "s" : ""} (numbered on the map)` : "no extra stops";
+  if (!best.extra.length) {
+    stat.className = "note";
+    stat.textContent = `Google should follow this route with ${stops}. Before driving, check that Google's blue line matches the green one here.`;
+  } else {
+    stat.className = "note w";
+    stat.textContent = `With ${cap} stops, Google may still pass ${best.extra.length} camera${best.extra.length > 1 ? "s" : ""} this route avoids.` +
+      (cap < 9 ? " Switch to 9 stops if you're opening it on a computer, or use the GPX file." : " Use the GPX file in a navigation app for an exact match.") +
+      (trouble ? ` (Routing server stopped answering: ${trouble})` : "");
+  }
+}
+async function copyGoogle() {
+  const box = $("gmurl"); if (!box.value) return;
+  try { await navigator.clipboard.writeText(box.value); }
+  catch { box.select(); try { document.execCommand("copy"); } catch {} }
+  $("gmcopy").textContent = "Copied"; setTimeout(() => { if ($("gmcopy")) $("gmcopy").textContent = "Copy"; }, 1500);
+}
+// Drops points that sit within `tol` metres of a straight line between their neighbours, so the
+// file stays small (OsmAnd snaps the track to roads anyway).
+function simplifyLine(line, tol) {
+  if (line.length < 3) return line;
+  const keep = new Uint8Array(line.length), stack = [[0, line.length - 1]];
+  keep[0] = keep[line.length - 1] = 1;
+  while (stack.length) {
+    const [a, b] = stack.pop(); let md = 0, mi = -1;
+    for (let i = a + 1; i < b; i++) {
+      const d = distToSeg({lat: line[i][0], lon: line[i][1]}, line[a], line[b]);
+      if (d > md) { md = d; mi = i; }
+    }
+    if (md > tol) { keep[mi] = 1; stack.push([a, mi], [mi, b]); }
+  }
+  return line.filter((_, i) => keep[i]);
+}
+function gpxFile() { return new File([gpxText()], "flock-route.gpx", {type: "application/gpx+xml"}); }
+function gpxText() {
+  const line = simplifyLine(lastBest.line, 3), a = lastTrip ? lastTrip.a : null, b = lastTrip ? lastTrip.b : null;
+  const x = s => esc(s || "");
+  const stamp = new Date().toLocaleString([], {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"});
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Flock Route" xmlns="http://www.topografix.com/GPX/1/1">
+<metadata><name>Flock Route ${x(stamp)}</name></metadata>
+${a ? `<wpt lat="${a.lat}" lon="${a.lon}"><name>Start: ${x(a.label)}</name></wpt>` : ""}
+${b ? `<wpt lat="${b.lat}" lon="${b.lon}"><name>Destination: ${x(b.label)}</name></wpt>` : ""}
+<trk><name>Camera-avoiding route</name><trkseg>
+${line.map(p => `<trkpt lat="${p[0].toFixed(6)}" lon="${p[1].toFixed(6)}"/>`).join("\n")}
+</trkseg></trk>
+</gpx>
+`;
+  return gpx;
+}
+function saveFile(file) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+function downloadGpx() {
+  if (!lastBest) return;
+  if (typeof window.Android !== "undefined") window.Android.shareGpx(gpxText());
+  else saveFile(gpxFile());
+}
+
+// OsmAnd takes routes as GPX files. Where the browser can hand a file to the phone's share menu we use that
+// (pick OsmAnd from the list); otherwise we download it and the person opens it with OsmAnd.
+const UA = navigator.userAgent, IS_IOS = /iPhone|iPad|iPod/i.test(UA), IS_ANDROID = /Android/i.test(UA);
+const AFTER = "In OsmAnd the route appears as a track. Tap it, choose Follow track (or Navigation), then Start.";
+async function openInOsmAnd() {
+  if (!lastBest) return;
+  const hint = $("osmhint");
+  if (typeof window.Android !== "undefined") {   // Android app: hand the route straight to OsmAnd
+    const r = window.Android.openInOsmAnd(gpxText());
+    hint.className = r === "error" ? "note w" : "note";
+    hint.textContent = {
+      ok: "Opening OsmAnd with this route. If it asks, choose to follow the track, then Start.",
+      missing: "OsmAnd isn't installed. Its Play Store page is opening; install it, then tap the button again.",
+      shared: "This route is too long to pass directly, so pick OsmAnd in the share menu. " + AFTER,
+      error: "Couldn't send the route to OsmAnd. Try “Share GPX file” and pick OsmAnd."
+    }[r] || "";
+    return;
+  }
+  const file = gpxFile();
+  let shareable = false;
+  try { shareable = !!(navigator.canShare && navigator.canShare({files: [file]})); } catch {}
+  if (shareable) {
+    try {
+      await navigator.share({files: [file], title: "Camera-avoiding route"});
+      hint.className = "note"; hint.textContent = "Pick OsmAnd in the share menu. " + AFTER;
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") { hint.className = "note"; hint.textContent = "Share cancelled. Tap again and pick OsmAnd."; return; }
+    }
+  }
+  saveFile(file);
+  hint.className = "note";
+  hint.textContent = IS_ANDROID
+    ? "Route saved as flock-route.gpx. Tap Open on the download message (or open it from Downloads) and choose OsmAnd. " + AFTER
+    : IS_IOS
+      ? "Route saved to Files. Open it in the Files app, tap Share, and choose OsmAnd. " + AFTER
+      : "Route saved as flock-route.gpx. Send it to your phone (text, email, or cloud drive), open it there and choose OsmAnd. " + AFTER;
+}
+
+/* ---------- install as an app ---------- */
+// Inside the Android app (window.Android exists) the page is already bundled, so no service worker.
+const IN_APP = typeof window.Android !== "undefined";
+if (!IN_APP && "serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installPrompt = e; $("install").hidden = false; });
+window.addEventListener("appinstalled", () => { installPrompt = null; $("install").hidden = true; });
+$("install").onclick = async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  try { await installPrompt.userChoice; } catch {}
+  installPrompt = null; $("install").hidden = true;
+};
+
+$("go").onclick = run;
+$("buf").oninput = e => { $("bufv").textContent = e.target.value + " m"; };
+$("all").onchange = drawCameras;
+</script>
+</body>
+</html>
