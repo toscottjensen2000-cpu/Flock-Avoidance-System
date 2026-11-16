@@ -1,0 +1,19 @@
+// Lets Android Studio open the top-level repo folder as the Android project.
+// The app module lives in android/app (android/ can also be opened on its own).
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "Flock Route"
+include ':app'
+project(':app').projectDir = file('android/app')
